@@ -5,8 +5,8 @@ import { evaluateDifficulty } from "./difficulty.js";
 import { rngFromDate } from "./seed.js";
 
 export function generateDailyPuzzle(dateStr, options = {}) {
-  const rng = rngFromDate(dateStr);
-  const targetTier = pickTargetTier(rng);
+  const rng = rngFromDate(options.seedStr ?? dateStr);
+  const targetTier = options.targetTier ?? pickTargetTier(rng);
   const enforceUnique = options.enforceUnique ?? false;
   const maxMs = options.maxMs ?? Number.POSITIVE_INFINITY;
   const startTime = Date.now();

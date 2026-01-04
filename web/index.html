@@ -6,95 +6,51 @@
     <title>Rummix</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" href="./joker.png" />
-    <script>
-      (function () {
-        const banner = document.createElement("div");
-        banner.id = "global-error";
-        banner.className = "error-banner hidden";
-        document.addEventListener("DOMContentLoaded", () => {
-          document.body.appendChild(banner);
-        });
-        window.showGlobalError = function (message) {
-          banner.textContent = "Error: " + message;
-          banner.classList.remove("hidden");
-        };
-        window.addEventListener("error", (event) => {
-          window.showGlobalError(event.message || "Script error");
-        });
-        window.addEventListener("unhandledrejection", (event) => {
-          const msg = event && event.reason && event.reason.message ? event.reason.message : "Unhandled rejection";
-          window.showGlobalError(msg);
-        });
-      })();
-    </script>
   </head>
   <body>
-    <div class="app">
-      <header class="hero">
+    <div class="app home">
+      <header class="hero home-hero">
         <div>
-          <h1>Rummix - Daily Rummikub Puzzle</h1>
-          <p class="subtitle">Rebuild the full board by placing all the required tiles to.</p>
+          <div class="badge">Daily Puzzle Set</div>
+          <h1>Rummix - Daily Rummikub Puzzles</h1>
+          <p class="subtitle">3 unique puzzles every day, choose your difficulty and see how fast you can solve the board.</p>
         </div>
         <div class="hero-actions">
-          <div class="meta">
-            <div class="meta-card">
-              <div class="meta-label">Date</div>
-              <div id="puzzle-date" class="meta-value">--</div>
-            </div>
-            <div class="meta-card">
-            <div class="meta-label">Difficulty</div>
-            <div id="puzzle-difficulty" class="meta-value">--</div>
-          </div>
-          <div class="meta-card">
-            <div class="meta-label">Time</div>
-            <div id="puzzle-timer" class="meta-value">00:00</div>
-          </div>
-        </div>
           <a class="rules-link" href="./rules.html" aria-label="Rules">?</a>
         </div>
       </header>
 
-      <section class="controls">
-        <button id="btn-reset">Reset Board</button>
-        <button id="btn-solve">Show Solution</button>
-        <button id="btn-shuffle">Shuffle Board</button>
-        <button id="btn-replay-solution" class="primary hidden">Replay Puzzle</button>
-      </section>
-
-      <main class="layout">
-        <section class="panel">
-          <h2>Required Tiles</h2>
-          <div id="required-tiles" class="tile-shelf"></div>
-
-          <h2>Workspace</h2>
-          <div id="workspace" class="workspace">
-            <div class="workspace-hint">Drop tiles here to think out loud.</div>
-          </div>
+      <main class="home-grid">
+        <section class="difficulty-card easy">
+          <div class="difficulty-tag">Easy</div>
+          <h2>Warm Up</h2>
+          <a class="play-link" href="./play.html?difficulty=easy">Play Easy</a>
         </section>
 
-        <section class="panel board-panel">
-          <div class="board-header">
-            <h2>Board Melds</h2>
-            <div class="board-hint">Drop tiles anywhere on the table. Melds float and snap as you build.</div>
-          </div>
-          <div id="board" class="board"></div>
+        <section class="difficulty-card medium">
+          <div class="difficulty-tag">Medium</div>
+          <h2>Daily Challenge</h2>
+          <a class="play-link" href="./play.html?difficulty=medium">Play Medium</a>
+        </section>
+
+        <section class="difficulty-card hard">
+          <div class="difficulty-tag">Hard</div>
+          <h2>Expert Mode</h2>
+          <a class="play-link" href="./play.html?difficulty=hard">Play Hard</a>
         </section>
       </main>
-    </div>
 
-    <div id="victory-overlay" class="victory-overlay hidden">
-      <div class="victory-card">
-        <div class="victory-badge">Puzzle Complete</div>
-        <h2>You did it!</h2>
-        <p>All melds are valid and every tile is placed.</p>
-        <div class="victory-time">Time: <span id="victory-time">00:00</span></div>
-        <div class="victory-actions">
-          <button id="btn-replay" class="primary">Replay Puzzle</button>
-          <button id="btn-close">Admire your work</button>
-        </div>
+      <div class="creator-links" aria-label="Creator links">
+        <a class="creator-credit" href="https://samwilton.org" target="_blank" rel="noopener noreferrer">
+          &copy; Sam Wilton
+        </a>
+        <a class="creator-link" href="https://github.com/wiltos1" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+          <img src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/github.svg" alt="" />
+        </a>
+        <a class="creator-link" href="https://www.linkedin.com/in/sam-wilton-47b094286/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+          <img src="https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/linkedin.svg" alt="" />
+        </a>
       </div>
     </div>
-
-    <script type="module" src="./app.js"></script>
   </body>
 </html>

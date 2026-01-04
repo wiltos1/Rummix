@@ -67,16 +67,29 @@ initPuzzle();
 
 function initPuzzle() {
   const dateStr = new Date().toISOString().slice(0, 10);
-  const cached = loadCachedPuzzle(dateStr);
+  const difficulty = getRequestedDifficulty();
+  const cacheKey = `${dateStr}:${difficulty}`;
+  const seedStr = `${dateStr}:${difficulty}`;
+  const cached = loadCachedPuzzle(cacheKey);
   if (cached) {
     puzzle = cached;
   } else {
     try {
-      puzzle = generateDailyPuzzle(dateStr, { enforceUnique: true, maxMs: UNIQUE_BUDGET_MS });
+      puzzle = generateDailyPuzzle(dateStr, {
+        enforceUnique: true,
+        maxMs: UNIQUE_BUDGET_MS,
+        targetTier: difficulty,
+        seedStr
+      });
     } catch (err) {
       console.warn("Unique puzzle generation failed, falling back to non-unique.", err);
       try {
-        puzzle = generateDailyPuzzle(dateStr, { enforceUnique: false, maxMs: FALLBACK_BUDGET_MS });
+        puzzle = generateDailyPuzzle(dateStr, {
+          enforceUnique: false,
+          maxMs: FALLBACK_BUDGET_MS,
+          targetTier: difficulty,
+          seedStr
+        });
       } catch (fallbackErr) {
         const message = fallbackErr?.message || "Puzzle generation failed.";
         if (window.showGlobalError) window.showGlobalError(message);
@@ -84,7 +97,7 @@ function initPuzzle() {
         return;
       }
     }
-    saveCachedPuzzle(dateStr, puzzle);
+    saveCachedPuzzle(cacheKey, puzzle);
   }
 
   baseState = {
@@ -93,7 +106,7 @@ function initPuzzle() {
     solution: puzzle.solution.map((meld) => [...meld])
   };
   totalTileCount = puzzle.startingBoard.flat().length + puzzle.requiredTiles.length;
-  renderMeta(puzzle);
+  renderMeta(puzzle, difficulty);
   renderPuzzle(baseState.startingBoard, baseState.requiredTiles);
   startTimer();
 }
@@ -114,9 +127,16 @@ function createErrorBanner() {
   return banner;
 }
 
-function loadCachedPuzzle(dateStr) {
+function getRequestedDifficulty() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = (params.get("difficulty") || "").toLowerCase();
+  if (raw === "easy" || raw === "medium" || raw === "hard") return raw;
+  return "easy";
+}
+
+function loadCachedPuzzle(cacheKey) {
   try {
-    const raw = window.localStorage.getItem(`${CACHE_KEY_PREFIX}${dateStr}`);
+    const raw = window.localStorage.getItem(`${CACHE_KEY_PREFIX}${cacheKey}`);
     if (!raw) return null;
     const data = JSON.parse(raw);
     return isValidPuzzleData(data) ? data : null;
@@ -125,10 +145,10 @@ function loadCachedPuzzle(dateStr) {
   }
 }
 
-function saveCachedPuzzle(dateStr, data) {
+function saveCachedPuzzle(cacheKey, data) {
   try {
     if (!isValidPuzzleData(data)) return;
-    window.localStorage.setItem(`${CACHE_KEY_PREFIX}${dateStr}`, JSON.stringify(data));
+    window.localStorage.setItem(`${CACHE_KEY_PREFIX}${cacheKey}`, JSON.stringify(data));
   } catch {
     // Ignore storage failures (quota, disabled, etc.)
   }
@@ -197,9 +217,11 @@ btnReplaySolution.addEventListener("click", () => {
   resetTimer();
 });
 
-function renderMeta(puzzleData) {
+function renderMeta(puzzleData, requestedDifficulty) {
   document.getElementById("puzzle-date").textContent = puzzleData.date;
-  document.getElementById("puzzle-difficulty").textContent = `${puzzleData.difficulty.tier} (${puzzleData.difficulty.score})`;
+  const tier = puzzleData.targetTier || requestedDifficulty || puzzleData.difficulty?.tier || "unknown";
+  const label = tier.charAt(0).toUpperCase() + tier.slice(1);
+  document.getElementById("puzzle-difficulty").textContent = label;
 }
 
 function renderPuzzle(startingBoard, requiredTiles) {
@@ -240,6 +262,33 @@ function layoutBoardGroups() {
     const placed = positionGroup(group, boardRect, placedRects);
     placedRects.push(placed);
   });
+}
+
+function layoutBoardGroupsFlow() {
+  const boardRect = boardEl.getBoundingClientRect();
+  const groups = Array.from(boardEl.querySelectorAll(".meld-group"));
+  const padding = 12;
+  const gap = 14;
+  let x = padding;
+  let y = padding;
+  let rowHeight = 0;
+
+  groups.forEach((group) => {
+    const width = Math.max(group.offsetWidth, 140);
+    const height = Math.max(group.offsetHeight, 70);
+    if (x + width + padding > boardRect.width) {
+      x = padding;
+      y += rowHeight + gap;
+      rowHeight = 0;
+    }
+    group.style.left = `${x}px`;
+    group.style.top = `${y}px`;
+    x += width + gap;
+    rowHeight = Math.max(rowHeight, height);
+  });
+
+  const minHeight = Math.max(520, y + rowHeight + padding);
+  boardEl.style.minHeight = `${minHeight}px`;
 }
 
 function positionGroup(group, boardRect, placedRects, clientX, clientY) {
@@ -556,6 +605,7 @@ function closeVictoryOverlay() {
 function enterSolutionView() {
   isSolutionView = true;
   renderPuzzle(baseState.solution, []);
+  layoutBoardGroupsFlow();
   applyVictoryStyles();
   victoryOverlay.classList.add("hidden");
   stopTimer();

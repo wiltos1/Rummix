@@ -30,7 +30,9 @@ function resolvePath(urlPath) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const requestPath = decodeURIComponent(req.url || "/");
+    const host = req.headers.host || "localhost";
+    const url = new URL(req.url || "/", `http://${host}`);
+    const requestPath = decodeURIComponent(url.pathname);
     const resolved = resolvePath(requestPath);
     if (!resolved.filePath.startsWith(resolved.root)) {
       res.writeHead(403);
