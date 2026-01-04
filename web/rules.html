@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rummix Rules</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" href="./joker.png" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="hero rules-hero">
+        <div>
+          <!-- <div class="badge">Rules</div> -->
+          <h1>Rummikub Rules</h1>
+          <p class="subtitle">Quick reference for classic Rummikub and this daily puzzle.</p>
+        </div>
+        <a class="rules-link" href="./index.html" aria-label="Back">X</a>
+      </header>
+
+      <main class="layout rules-layout">
+        <section class="panel">
+          <h2>Classic Rummikub</h2>
+          <p class="rules-text">Use tiles to form melds. Every tile must belong to a valid run or set.</p>
+          <ul class="rules-list">
+            <li>Runs: same color, consecutive numbers, length 3 or more.</li>
+            <li>Sets: same number, 3 or 4 tiles, all different colors.</li>
+            <li>No jokers are used in this puzzle.</li>
+            <li>Each tile exists twice in the full set.</li>
+          </ul>
+        </section>
+
+        <section class="panel">
+          <h2>Daily Puzzle Rules</h2>
+          <p class="rules-text">You are given a starting board and a set of required tiles.</p>
+          <ul class="rules-list">
+            <li>Place every required tile onto the board.</li>
+            <li>Rearrange existing tiles to make all melds valid.</li>
+            <li>All tiles on the board must belong to valid melds.</li>
+            <li>Win when every tile is placed and every meld is valid.</li>
+          </ul>
+        </section>
+
+        <section class="panel">
+          <h2>Tips</h2>
+          <ul class="rules-list">
+            <li>Break runs into smaller parts to free tiles.</li>
+            <li>Use the workspace to plan before committing.</li>
+            <li>Look for shared numbers that can become sets.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

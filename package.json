@@ -1,0 +1,11 @@
+{
+  "name": "daily-rummikub-puzzle",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Daily Rummikub Puzzle Generator & Solver",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "ui": "node src/web-server.js"
+  }
+}
