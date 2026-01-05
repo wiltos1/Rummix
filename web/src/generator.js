@@ -15,7 +15,8 @@ export function generateDailyPuzzle(dateStr, options = {}) {
     if (Date.now() - startTime > maxMs) {
       throw new Error("Puzzle generation timed out");
     }
-    const targetTiles = randInt(rng, 30, 50);
+    const targetRange = targetTilesRange(targetTier);
+    const targetTiles = randInt(rng, targetRange.min, targetRange.max);
     const countRange = requiredCountRange(targetTier, rng);
     const minRemaining = 18;
 
@@ -265,4 +266,14 @@ function pickTargetTier(rng) {
   if (roll < 0.65) return "medium";
   if (roll < 0.9) return "hard";
   return "expert";
+}
+
+function targetTilesRange(tier) {
+  const ranges = {
+    easy: { min: 24, max: 34 },
+    medium: { min: 28, max: 40 },
+    hard: { min: 32, max: 46 },
+    expert: { min: 34, max: 50 }
+  };
+  return ranges[tier] ?? { min: 28, max: 40 };
 }

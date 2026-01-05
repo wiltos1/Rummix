@@ -1,20 +1,17 @@
-import { generateDailyPuzzle } from "./src/generator.js";
 import { isValidRun, isValidSet } from "./src/melds.js";
 
 const boardEl = document.getElementById("board");
 const requiredEl = document.getElementById("required-tiles");
 const workspaceEl = document.getElementById("workspace");
-const errorBanner = createErrorBanner();
-
 let dragState = null;
 let hasWon = false;
 let isSolutionView = false;
+let puzzleReady = false;
 
 let puzzle = null;
 let baseState = null;
 
 const CACHE_KEY_PREFIX = "rummix:puzzle:";
-const UNIQUE_BUDGET_MS = 2000;
 const FALLBACK_BUDGET_MS = 15000;
 
 workspaceEl.addEventListener("pointerdown", (event) => {
@@ -58,6 +55,7 @@ const btnReplay = document.getElementById("btn-replay");
 const btnClose = document.getElementById("btn-close");
 const timerEl = document.getElementById("puzzle-timer");
 const victoryTimeEl = document.getElementById("victory-time");
+const loadingEl = document.getElementById("loading-indicator");
 
 let totalTileCount = 0;
 let timerStart = Date.now();
@@ -71,35 +69,38 @@ function initPuzzle() {
   const cacheKey = `${dateStr}:${difficulty}`;
   const seedStr = `${dateStr}:${difficulty}`;
   const cached = loadCachedPuzzle(cacheKey);
+  setLoading(true);
+  setControlsDisabled(true);
   if (cached) {
-    puzzle = cached;
-  } else {
-    try {
-      puzzle = generateDailyPuzzle(dateStr, {
-        enforceUnique: true,
-        maxMs: UNIQUE_BUDGET_MS,
-        targetTier: difficulty,
-        seedStr
-      });
-    } catch (err) {
-      console.warn("Unique puzzle generation failed, falling back to non-unique.", err);
-      try {
-        puzzle = generateDailyPuzzle(dateStr, {
-          enforceUnique: false,
-          maxMs: FALLBACK_BUDGET_MS,
-          targetTier: difficulty,
-          seedStr
-        });
-      } catch (fallbackErr) {
-        const message = fallbackErr?.message || "Puzzle generation failed.";
-        if (window.showGlobalError) window.showGlobalError(message);
-        showError(message);
-        return;
-      }
-    }
-    saveCachedPuzzle(cacheKey, puzzle);
+    applyPuzzle(cached, difficulty);
+    return;
   }
 
+  requestPuzzleFromWorker({
+    dateStr,
+    difficulty,
+    seedStr,
+    maxMs: FALLBACK_BUDGET_MS
+  })
+    .then((workerPuzzle) => {
+      saveCachedPuzzle(cacheKey, workerPuzzle);
+      applyPuzzle(workerPuzzle, difficulty);
+    })
+    .catch((err) => {
+      console.error("Puzzle generation failed.", err);
+      setLoading(false);
+    });
+}
+
+function getRequestedDifficulty() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = (params.get("difficulty") || "").toLowerCase();
+  if (raw === "easy" || raw === "medium" || raw === "hard") return raw;
+  return "easy";
+}
+
+function applyPuzzle(puzzleData, difficulty) {
+  puzzle = puzzleData;
   baseState = {
     startingBoard: puzzle.startingBoard.map((meld) => [...meld]),
     requiredTiles: [...puzzle.requiredTiles],
@@ -109,29 +110,35 @@ function initPuzzle() {
   renderMeta(puzzle, difficulty);
   renderPuzzle(baseState.startingBoard, baseState.requiredTiles);
   startTimer();
+  puzzleReady = true;
+  setControlsDisabled(false);
+  setLoading(false);
+  updateControlsLockedState();
 }
 
-window.addEventListener("error", (event) => {
-  showError(event.message || "Unexpected error");
-});
+function requestPuzzleFromWorker({ dateStr, difficulty, seedStr, maxMs }) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("./src/puzzle-worker.js", import.meta.url), { type: "module" });
+    const timeoutId = window.setTimeout(() => {
+      worker.terminate();
+      reject(new Error("Puzzle generation timed out"));
+    }, maxMs + 5000);
 
-window.addEventListener("unhandledrejection", (event) => {
-  const message = event?.reason?.message || "Unhandled promise rejection";
-  showError(message);
-});
+    worker.addEventListener("message", (event) => {
+      window.clearTimeout(timeoutId);
+      worker.terminate();
+      const payload = event.data || {};
+      if (payload.ok) resolve(payload.puzzle);
+      else reject(new Error(payload.error || "Puzzle generation failed"));
+    });
+    worker.addEventListener("error", (event) => {
+      window.clearTimeout(timeoutId);
+      worker.terminate();
+      reject(event?.error || new Error("Puzzle worker error"));
+    });
 
-function createErrorBanner() {
-  const banner = document.createElement("div");
-  banner.className = "error-banner hidden";
-  document.body.appendChild(banner);
-  return banner;
-}
-
-function getRequestedDifficulty() {
-  const params = new URLSearchParams(window.location.search);
-  const raw = (params.get("difficulty") || "").toLowerCase();
-  if (raw === "easy" || raw === "medium" || raw === "hard") return raw;
-  return "easy";
+    worker.postMessage({ dateStr, difficulty, seedStr, maxMs });
+  });
 }
 
 function loadCachedPuzzle(cacheKey) {
@@ -174,12 +181,6 @@ function isMeldArray(meld) {
 
 function isTileLike(tile) {
   return tile && typeof tile.id === "number" && typeof tile.color === "string" && typeof tile.value === "number";
-}
-
-function showError(message) {
-  if (!errorBanner) return;
-  errorBanner.textContent = `Error: ${message}`;
-  errorBanner.classList.remove("hidden");
 }
 
 btnReset.addEventListener("click", () => {
@@ -436,6 +437,7 @@ function endDrag(event) {
     tileEl.style.top = "";
     tileEl.classList.remove("workspace-tile");
     insertIntoGroup(tileEl, targetGroup, event.clientX);
+    normalizeGroupOrder(targetGroup);
     resolveBoardOverlapsLocal(targetGroup);
   } else if (isPointInside(event, workspaceEl)) {
     tileEl.classList.add("workspace-tile");
@@ -449,6 +451,7 @@ function endDrag(event) {
     tileEl.classList.remove("workspace-tile");
     const group = createFloatingGroup(boardRect, event.clientX, event.clientY);
     group.appendChild(tileEl);
+    normalizeGroupOrder(group);
     resolveBoardOverlapsLocal(group);
   } else {
     restoreTile(tileEl, originParent, originIndex);
@@ -470,6 +473,16 @@ function insertIntoGroup(tileEl, group, clientX) {
   } else {
     group.insertBefore(tileEl, children[index]);
   }
+}
+
+function normalizeGroupOrder(group) {
+  const tiles = Array.from(group.children).filter((child) => child.classList.contains("tile"));
+  if (tiles.length < 2) return;
+  const colors = new Set(tiles.map((tile) => tile.dataset.color));
+  if (colors.size !== 1) return;
+
+  tiles.sort((a, b) => Number(a.dataset.value) - Number(b.dataset.value));
+  tiles.forEach((tile) => group.appendChild(tile));
 }
 
 function restoreTile(tileEl, parent, index) {
@@ -587,6 +600,7 @@ function showVictory() {
   hasWon = true;
   victoryOverlay.classList.remove("hidden");
   applyVictoryStyles();
+  updateControlsLockedState();
   stopTimer();
   victoryTimeEl.textContent = formatElapsed(Date.now() - timerStart);
 }
@@ -595,11 +609,13 @@ function hideVictory() {
   hasWon = false;
   victoryOverlay.classList.add("hidden");
   clearVictoryStyles();
+  updateControlsLockedState();
 }
 
 function closeVictoryOverlay() {
   victoryOverlay.classList.add("hidden");
   applyVictoryStyles();
+  updateControlsLockedState();
 }
 
 function enterSolutionView() {
@@ -613,6 +629,7 @@ function enterSolutionView() {
   btnSolve.classList.add("hidden");
   btnShuffle.classList.add("hidden");
   btnReplaySolution.classList.remove("hidden");
+  updateControlsLockedState();
 }
 
 function exitSolutionView() {
@@ -621,6 +638,7 @@ function exitSolutionView() {
   btnSolve.classList.remove("hidden");
   btnShuffle.classList.remove("hidden");
   btnReplaySolution.classList.add("hidden");
+  updateControlsLockedState();
 }
 
 function startTimer() {
@@ -713,5 +731,25 @@ function isPointInside(event, element) {
 }
 
 function isInteractionLocked() {
-  return hasWon && !isSolutionView;
+  return !puzzleReady || (hasWon && !isSolutionView);
+}
+
+function setControlsDisabled(disabled) {
+  const controls = [btnReset, btnSolve, btnShuffle, btnReplaySolution];
+  controls.forEach((btn) => {
+    btn.disabled = disabled;
+  });
+}
+
+function updateControlsLockedState() {
+  const locked = hasWon && !isSolutionView;
+  const controls = [btnReset, btnSolve, btnShuffle];
+  controls.forEach((btn) => {
+    btn.classList.toggle("locked", locked);
+  });
+}
+
+function setLoading(isLoading) {
+  if (!loadingEl) return;
+  loadingEl.classList.toggle("hidden", !isLoading);
 }
